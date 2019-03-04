@@ -1,0 +1,302 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Wed Oct 24 11:14:16 2018
+
+@author: Deepali
+Loan Data Prediction
+"""
+import pandas as pd
+import numpy as np
+import matplotlib as plt
+from scipy.stats import mode
+#matplotlib inline
+
+
+## Data Exploration 
+train = pd.read_csv("D:\Deepali\Data Science\Analytics Vidya\Case Studies\Load Prediction\\train.csv") #Reading the dataset in a dataframe using Pandas
+test = pd.read_csv("D:\Deepali\Data Science\Analytics Vidya\Case Studies\Load Prediction\\test.csv") #Reading the dataset in a dataframe using Pandas
+df= train.append(test).reset_index(drop=True)
+df.head(5)
+df.describe()
+df.info()
+np.shape(df)
+df['Property_Area'].value_counts()
+df['Credit_History'].value_counts()
+df['Gender'].value_counts()
+df['Education'].value_counts()
+
+## Data Distribution Analysis
+
+df['ApplicantIncome'].hist(bins=50)
+df.boxplot(column='ApplicantIncome') ## Clearly wee see some of the extreme values
+ ## so the income oitliers can be driven by education, gender or property area *Rural/Urban
+df.boxplot(column='ApplicantIncome', by = 'Education') ## mean for both graduate and non-graduate is almost same, howevere we have more graduates with high income
+df.boxplot(column='ApplicantIncome', by = 'Gender')
+df.boxplot(column='ApplicantIncome', by = 'Property_Area')
+df.boxplot(column='ApplicantIncome', by = 'Credit_History')
+
+df['LoanAmount'].hist(bins=50)
+df.boxplot(column = 'LoanAmount') ## Again we have extreme values, so both Laon Amount and Income data needs data munging
+## pivot between credit history and Loan status
+tempPivot1 = df.pivot_table(values='Loan_Status',index=['Credit_History','Gender'], aggfunc = lambda x: x.map({'Y':1,'N':0}).mean())
+print ('\nProbility of getting loan for each Credit History class:')
+print(tempPivot1)
+##Verify the relation between credit history and loan status using bar graph
+temp3 = pd.crosstab([df.Credit_History,df.Gender], df['Loan_Status'])
+temp3.plot(kind='bar', stacked=True, color=['red','blue','yellow'], grid=False)
+
+temp4 = pd.crosstab(df['Education'], df['Loan_Status'])
+temp4.plot(kind='bar', stacked=True, color=['red','green'], grid=False)
+
+temp5 = pd.crosstab(df['Gender'], df['Loan_Status'])
+temp5.plot(kind='bar', stacked=True, color=['red','green'], grid=False)
+
+## Data Munging
+df.apply(lambda x: sum(x.isnull()), axis=0)
+df['LoanAmount'].fillna(df['LoanAmount'].mean(), inplace=True)
+df['Self_Employed'].value_counts()
+df['Self_Employed'].fillna('UK', inplace=True)
+df['Gender'].value_counts()
+df['Gender'].fillna('UK', inplace=True)
+
+"""
+table = df.pivot_table(values='LoanAmount', index='Self_Employed' ,columns='Education', aggfunc=np.median)
+# Define function to return value of this pivot_table
+def fage(x):
+ return table.loc[x['Self_Employed'],x['Education']]
+# Replace missing values
+df['LoanAmount'].fillna(df[df['LoanAmount'].isnull()].apply(fage, axis=1), inplace=True)
+"""
+df.apply(lambda x: sum(x.isnull()), axis=0)
+df['Loan_Amount_Term'].value_counts()
+df['Married'].value_counts()
+df['Married'].fillna('UK',inplace=True)
+df['Dependents'].value_counts()
+df['Dependents'].fillna(999999,inplace=True)
+df['Credit_History'].value_counts()
+df['Credit_History'].fillna(9999999.00, inplace=True)
+df['Loan_Amount_Term'].value_counts()
+df['Loan_Amount_Term'].fillna(999999,inplace=True)
+
+temp6 = pd.crosstab(df['Credit_History'], df['Loan_Status'])
+temp6.plot(kind='bar', stacked=True, color=['red','green','blue'], grid=False)
+#temp6.loc(temp6['N'],temp6['0.0'])
+#temp6[1,1]
+#mode(df['Credit_History]) = 
+df.isnull().sum().sort_values()
+np.shape(df)
+#df.loc[df['Loan_Status'] == 'Y','Credit_History'].fillna(999, inplace = True)
+print(df.head())
+
+
+#probability of getting loan by each class
+temp7 = df.pivot_table(values='Loan_Status',index=['Credit_History','Gender','Education'],aggfunc=lambda x: x.map({'Y':1,'N':0}).count())
+print ('\nProbility of getting loan for each Credit History class:')
+print (temp7)
+
+#Handle extreme values
+df['LoanAmount_log'] = np.log(df['LoanAmount'])
+df['LoanAmount_log'].hist(bins=20)
+df['LoanAmount'].hist(bins=20)
+
+#Get total income by joining co-applicants income
+df['TotalIncome'] = df['ApplicantIncome'] + df['CoapplicantIncome']
+df['TotalIncome_log'] = np.log(df['TotalIncome'])
+df['TotalIncome_log'].hist(bins=20)
+
+
+df['LoanPaybackCapab1'] = 1000*df['LoanAmount']/df['TotalIncome']
+df['LoanPaybackCapab1'].hist(bins=20)
+df['LoanPaybackCapab_log'] = np.log(df['LoanPaybackCapab1'])
+df['LoanPaybackCapab_log'].hist(bins=20)
+df.head()
+df.info()
+
+
+bins = [0,10,20,30,40,50,60,70,80,90,100]
+df['LoanPaybackCapab_bin1'] = pd.cut(df['LoanPaybackCapab1'], bins)
+LPC_BIN = df.pivot_table(values='Loan_Status',index=['LoanPaybackCapab_bin1'],aggfunc=lambda x: x.map({'Y':1,'N':0}).mean())
+print ('\nProbility of getting loan for each Credit History class:')
+print (LPC_BIN)
+
+bins = [0,2000,3000,4000,5000,6000,7000,8000,9000,10000,100000]
+df['TotalIncome_bin1'] = pd.cut(df['TotalIncome'], bins)
+TI_BIN = df.pivot_table(values='Loan_Status',index=['TotalIncome_bin1'],aggfunc=lambda x: x.map({'Y':1,'N':0}).mean())
+print ('\nProbility of getting loan for each Credit History class:')
+print (TI_BIN)
+
+df['TotalIncome'].min()
+df['TotalIncome'].min()
+#Label Encoder
+
+from sklearn.preprocessing import LabelEncoder
+var_mod = ['Education','Self_Employed','Property_Area','Married','Gender']
+le = LabelEncoder()
+for i in var_mod:
+    df[i] = le.fit_transform(df[i])
+df.dtypes 
+
+dependent_nums = {"Dependents":{'0':0, '1': 1, '2': 2, '3+': 3, '999999': 999999}}
+df.replace(dependent_nums, inplace=True)
+df['Dependents'].value_counts()
+
+TI_BIN = df.pivot_table(values='Loan_Status',index=['Dependents'],aggfunc=lambda x: x.map({'Y':1,'N':0}).mean())
+print ('\nProbility of getting loan for each Credit History class:')
+print (TI_BIN)
+
+'''''
+#Code t slpit data in 80/20
+from sklearn.model_selection import train_test_split
+# create training and testing vars
+X_train, X_test, y_train, y_test = train_test_split(df, y, test_size=0.2)
+print X_train.shape, y_train.shape
+print X_test.shape, y_test.shape
+'''
+train = df[df['Loan_Status'].notnull()]
+test = df[df['Loan_Status'].isnull()].drop(['Loan_Status'], axis=1)
+np.shape(test)
+np.shape(train)
+
+LoanStatus_nums = {"Loan_Status":{'Y':1, 'N': 0}}
+df.replace(LoanStatus_nums, inplace=True)
+df['Loan_Status'].value_counts()
+df.head()
+
+#Import models from scikit learn module:
+from sklearn.linear_model import LogisticRegression
+from sklearn.cross_validation import KFold   #For K-fold cross validation
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.tree import DecisionTreeClassifier, export_graphviz
+from sklearn import metrics
+
+#Generic function for making a classification model and accessing performance:
+def classification_model(model, data, predictors, outcome):
+  #Fit the model:
+  model.fit(data[predictors],data[outcome])
+
+  #Make predictions on training set:
+  predictions = model.predict(data[predictors])
+  
+  #Print accuracy
+  accuracy = metrics.accuracy_score(predictions,data[outcome])
+  print ("Accuracy : %s" % "{0:.3%}".format(accuracy))
+
+  #Perform k-fold cross-validation with 5 folds
+  kf = KFold(data.shape[0], n_folds=5)
+  error = []
+  for train, test in kf:
+    # Filter training data
+    train_predictors = (data[predictors].iloc[train,:])
+    
+    # The target we're using to train the algorithm.
+    train_target = data[outcome].iloc[train]
+    
+    # Training the algorithm using the predictors and target.
+    model.fit(train_predictors, train_target)
+    
+    #Record error from each cross-validation run
+    error.append(model.score(data[predictors].iloc[test,:], data[outcome].iloc[test]))
+ 
+  print ("Cross-Validation Score : %s" % "{0:.3%}".format(np.mean(error)))
+
+  #Fit the model again so that it can be refered outside the function:
+  model.fit(data[predictors],data[outcome]) 
+
+# Model: Logistic Regression
+outcome_var = 'Loan_Status'
+model = LogisticRegression()
+predictor_var = ['Credit_History']
+classification_model(model, train ,predictor_var,outcome_var)
+
+#We can try different combination of variables:
+predictor_var = ['Credit_History','Education','Married','Self_Employed','Property_Area']
+classification_model(model, train,predictor_var,outcome_var)
+
+
+y_pred = model.predict(train[predictor_var])
+print(y_pred)
+
+# Model: Support Vector Machine
+from sklearn.svm import SVC
+outcome_var = 'Loan_Status'
+model = SVC(kernel='poly', degree=2)
+predictor_var = ['Credit_History']
+classification_model(model, train ,predictor_var,outcome_var)
+
+#We can try different combination of variables:
+predictor_var = ['Credit_History','Education']
+classification_model(model, train,predictor_var,outcome_var)
+
+
+y_pred = model.predict(train[predictor_var])
+print(y_pred)
+print("Test")
+
+# Model:  Ramdom Forest
+model = RandomForestClassifier(n_estimators=10)
+predictor_var = ['Gender', 'Married','Loan_Amount_Term', 'Credit_History', 'Property_Area',
+        'LoanAmount_log','TotalIncome_log', 'Education',
+       'Self_Employed','Dependents']
+classification_model(model, train,predictor_var,outcome_var)
+
+#With less variables
+model = RandomForestClassifier(n_estimators=10)
+predictor_var = ['Gender', 'Credit_History', 
+        'LoanAmount_log','TotalIncome_log', 'Education',
+       'Self_Employed']
+classification_model(model, train,predictor_var,outcome_var)
+
+#Create a series with feature importances:
+featimp = pd.Series(model.feature_importances_, index=predictor_var).sort_values(ascending=False)
+print (featimp)
+
+predictor_var = ['Credit_History', 'Property_Area','LoanAmount_log','TotalIncome_log','Dependents']
+classification_model(model, train,predictor_var,outcome_var)
+
+
+#Model: Decision Tree
+model = DecisionTreeClassifier()
+predictor_var = ['Credit_History','Gender','Married','Education']
+classification_model(model, train,predictor_var,outcome_var)
+
+#We can try different combination of variables:
+predictor_var = ['Credit_History','Loan_Amount_Term','LoanAmount_log']
+classification_model(model, train,predictor_var,outcome_var)
+
+#We can try different combination of variables:
+predictor_var = ['Credit_History', 'Property_Area','LoanAmount_log','TotalIncome_log','Dependents']
+classification_model(model, train,predictor_var,outcome_var)
+
+# Random Forest
+model = RandomForestClassifier(n_estimators=100)
+predictor_var = ['Gender', 'Married', 'Dependents', 'Education',
+       'Self_Employed', 'Loan_Amount_Term', 'Credit_History', 'Property_Area',
+        'LoanAmount_log','TotalIncome_log']
+classification_model(model, train,predictor_var,outcome_var)
+
+# Result shows 100% accuracy. which shows overfitting. Lets solve it by
+# 1.Reducing the number of predictors
+#2 Tuning the model parameters
+
+#Create a series with feature importances:
+featimp = pd.Series(model.feature_importances_, index=predictor_var).sort_values(ascending=False)
+print (featimp)
+
+
+model = RandomForestClassifier(n_estimators=25, min_samples_split=20, max_depth=4, max_features=1)
+predictor_var = ['TotalIncome_log','LoanAmount_log','Credit_History','Dependents','Property_Area']
+classification_model(model, train,predictor_var,outcome_var)
+
+# I've got my predictions now
+y_pred = model.predict(test[predictor_var])
+print(y_pred)
+test.info()
+test['Pred_Loan_Status'] = y_pred
+test.head()
+test['Pred_Loan_Status'].value_counts()
+train.info()
+
+output=pd.DataFrame(data={"Loan_ID":test["Loan_ID"],"Loan_Status":y_pred}) 
+output.to_csv(path_or_buf="D:\\Deepali\\Data Science\\Analytics Vidya\\Case Studies\\Load Prediction\\results.csv",index=False,quoting=3)
+
+
